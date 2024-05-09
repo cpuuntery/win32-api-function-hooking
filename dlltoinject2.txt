@@ -1,0 +1,52 @@
+#include <windows.h>
+#include <stdio.h>
+#include "MinHook.h"
+#include <ntstatus.h>
+
+// Function pointer for the original RtlGetVersion function
+typedef NTSTATUS(NTAPI* RtlGetVersionPtr)(PRTL_OSVERSIONINFOW);
+
+// Define the original RtlGetVersion function
+RtlGetVersionPtr OriginalRtlGetVersion;
+
+// Hooked function for RtlGetVersion
+NTSTATUS NTAPI HookedRtlGetVersion(PRTL_OSVERSIONINFOW lpVersionInformation) {
+    // Spoof the build number to 10240
+    lpVersionInformation->dwBuildNumber = 10240;
+
+    // Call the original RtlGetVersion function
+		return STATUS_SUCCESS;
+}
+
+// Entry point of the DLL
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+    if (ul_reason_for_call == DLL_PROCESS_ATTACH) {
+        // Initialize MinHook
+        if (MH_Initialize() != MH_OK) {
+            MessageBoxA(NULL, "Failed to initialize MinHook", "Error", MB_OK | MB_ICONERROR);
+            return FALSE;
+        }
+
+        // Get the address of the RtlGetVersion function
+        OriginalRtlGetVersion = (RtlGetVersionPtr)GetProcAddress(GetModuleHandleA("ntdll.dll"), "RtlGetVersion");
+
+        // Create a hook for RtlGetVersion
+        if (MH_CreateHook(OriginalRtlGetVersion, &HookedRtlGetVersion, (LPVOID*)&OriginalRtlGetVersion) != MH_OK) {
+            MessageBoxA(NULL, "Failed to create hook for RtlGetVersion", "Error", MB_OK | MB_ICONERROR);
+            return FALSE;
+        }
+
+        // Enable the hook for RtlGetVersion
+        if (MH_EnableHook(MH_ALL_HOOKS) != MH_OK) {
+            MessageBoxA(NULL, "Failed to enable hook for RtlGetVersion", "Error", MB_OK | MB_ICONERROR);
+            return FALSE;
+        }
+    }
+    else if (ul_reason_for_call == DLL_PROCESS_DETACH) {
+        // Disable and uninitialize MinHook
+        MH_DisableHook(OriginalRtlGetVersion);
+        MH_Uninitialize();
+    }
+
+    return TRUE;
+}

@@ -1,0 +1,72 @@
+//the first thing that you must know before hooking a function is the function return type
+
+#include <windows.h>
+#include "MinHook.h"
+#include <ntstatus.h>
+
+// NTSTATUS must be chabged depending on the win32 function type
+//typedef NTSTATUS(WINAPI* win32_api_t)(pointer_to_win32_function_structure);
+//win32_api_t win32_api_Original;
+
+// win32 api uses structure to give data to a function or read data from a function. 
+// to minpulate a function we need to change the structure that is used by the  function. 
+// to reach the structure we need a pointer to a structure.
+// PRTL_OSVERSIONINFOW is a pointer to OSVERSIONINFOW structure that is used by RtlGetVersion function
+
+// Define the function pointer type for the original RtlGetVersion function
+typedef NTSTATUS(WINAPI* RtlGetVersion_t)(PRTL_OSVERSIONINFOW);
+// Define the original function pointer
+RtlGetVersion_t RtlGetVersion_Original;
+// Define the hook function
+NTSTATUS WINAPI RtlGetVersion_Hook(PRTL_OSVERSIONINFOW change_data_inside_a_structure) {
+	//you need to specify from  dwOSVersionInfoSize to dwPlatformId becuse for some reason if you only specify dwBuildNumber the other data in structure will have a very bug value that will cause the //browser to crash i was able to figure it out thanks to api monitor v2 in context switch mode
+    change_data_inside_a_structure->dwOSVersionInfoSize = 284;
+    change_data_inside_a_structure->dwMajorVersion = 10;
+    change_data_inside_a_structure->dwMinorVersion = 0;
+    change_data_inside_a_structure->dwBuildNumber = 17000;
+    change_data_inside_a_structure->dwPlatformId = VER_PLATFORM_WIN32_NT;
+    return STATUS_SUCCESS;
+}
+
+
+// Entry point of the DLL
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+    switch (ul_reason_for_call) {
+        case DLL_PROCESS_ATTACH:
+            // Initialize MinHook
+            if (MH_Initialize() != MH_OK) {
+                MessageBoxA(NULL, "Failed to initialize MinHook", "Error", MB_OK | MB_ICONERROR);
+                return FALSE;
+            }
+
+            // Get the address of the RtlGetVersion function
+			//the loaded library changes depending on the win32 api being targeted. for RtlGetVersion the library is ntdll.dll
+		    //"RtlGetVersion_t" must match for example the name in line 17 and 19 and at the end "RtlGetVersion" function name must match for example the name in line 45
+            RtlGetVersion_Original = (RtlGetVersion_t)GetProcAddress(GetModuleHandleA("ntdll.dll"), "RtlGetVersion");
+			//"RtlGetVersion" at the end of the line 45 is very important. if your function hooking does not work. try to replace the last capital letter of the function for A to W and vice versa
+
+            // Create the hook
+			//"RtlGetVersion_Original" function name must match for example the name in line 19 and 45 and 51
+			//"RtlGetVersion_Hook" function name must match for example the name in line 18 and 51
+            if (MH_CreateHook(RtlGetVersion_Original, &RtlGetVersion_Hook, (LPVOID*)&RtlGetVersion_Original) != MH_OK) {
+                MessageBoxA(NULL, "Failed to create hook", "Error", MB_OK | MB_ICONERROR);
+                return FALSE;
+            }
+
+            // Enable the hook
+            if (MH_EnableHook(MH_ALL_HOOKS) != MH_OK) {
+                MessageBoxA(NULL, "Failed to enable hook", "Error", MB_OK | MB_ICONERROR);
+                return FALSE;
+            }
+            break;
+
+        case DLL_PROCESS_DETACH:
+            // Disable and remove the hook
+			//"RtlGetVersion_Original" function name must match for example the name in line 19 and 45 and 51 and 66 and 67
+            MH_DisableHook(RtlGetVersion_Original);
+            MH_RemoveHook(RtlGetVersion_Original);
+            break;
+    }
+
+    return TRUE;
+}

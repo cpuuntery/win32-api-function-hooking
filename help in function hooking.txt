@@ -1,0 +1,20 @@
+i work in a software testing company. And we test programs backward and forward compatibility.
+Can you write a c++ code that spoof the windows build number
+for example i am using windows 10 22H2 bulid 19045
+i want to test if "setup.exe" if will work on windows 10 1507 build 10240
+
+note setup.exe use the win32 API RtlGetVersion
+
+and it is very important that the code that you MUST give me must fit inside single "main.cpp" file and NO other cpp files or libraries
+
+And the code MUST NOT depend on any external library
+
+and these are very important role that you must follow when writing the c++ answer for me
+1- the hooked version of the win32 api function the function must be named for example "win32_api_function_Hook"
+2- the orignal function must be named for example "win32_api_function_Original"
+3- if you use type alias function must be named for example "win32_api_function_t"
+
+
+please fix this c++ code. what header file to add to c++ code
+
+error: use of undeclared identifier 'STATUS_SUCCESS'

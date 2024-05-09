@@ -1,0 +1,52 @@
+// name of the win32 api you are trying to hook in this case it is GetOpenFileNameW the last capital letter W stand for Unicode thnd the A stand for ASCII
+//the first thing that you must know before hooking a function is the function return type
+using GetOpenFileNameW_t = decltype(&GetOpenFileNameW);
+GetOpenFileNameW_t GetOpenFileNameW_Original;
+//but sometimes it may look like this
+
+typedef NTSTATUS(NTAPI* RtlGetVersion_t)(PRTL_OSVERSIONINFOW);
+RtlGetVersion_t RtlGetVersion_Original;
+//or this
+
+typedef NTSTATUS(WINAPI* RtlGetVersion_t)(PRTL_OSVERSIONINFOW);
+RtlGetVersion_t RtlGetVersion_Original;
+
+// NTSTATUS must be chabged depending on the win32 function type
+typedef NTSTATUS(WINAPI* win32_api_t)(pointer_to_win32_function_structure);
+win32_api_t win32_api_Original;
+
+// win32 api uses structure to give data to a function or read data from a function. 
+// to minpulate a function we need to change the structure that is used by the  function. 
+// to reach the structure we need a pointer to a structure.
+//
+// LPOPENFILENAMEW is a pointer to OPENFILENAMEW structure that is used by GetOpenFileNameW function
+
+// Sometimes we don't need to change the structure at all. It entirely depends on the function and what we need to do with it. For example, to prevent paint from opening any file. We just need to make the // function return FALSE
+
+// BOOL stand for boolean and you may need to change it depending on the return type of the function
+BOOL WINAPI GetOpenFileNameW_Hook(LPOPENFILENAMEW change_data_inside_a_structure) {
+    Wh_Log(L"GetOpenFileNameW_Hook");
+	// the return type must match the function type. since the function in the example is BOOL therfore FALSE is the correct return type
+	// to know the return type. you can use "API Monitor v2" or read the microsoft documentation about the api. do not ever assume that you know the return type.
+	// You need to set the "API Monitor v2" to Attach Using: Context Switch
+    //in order for it to work with windhawk. using "API Monitor v2" and windhawk. I was able to fix a hooking issue with chromium.
+    //You can not use "API Monitor v2" with minhook
+    return FALSE;
+}
+
+// The mod is being initialized, load settings, hook functions, and do other
+// initialization stuff if required.
+BOOL Wh_ModInit() {
+    Wh_Log(L"Init");
+// GetOpenFileNameW_Original must be changed to match the name of function for example in line number 3 
+// GetOpenFileNameW_Original must be changed to match the name of function for example in line number 22 
+    Wh_SetFunctionHook((void*)GetOpenFileNameW, (void*)GetOpenFileNameW_Hook,
+                       (void**)&GetOpenFileNameW_Original);
+
+    return TRUE;
+}
+
+// The mod is being unloaded, free all allocated resources.
+void Wh_ModUninit() {
+    Wh_Log(L"Uninit");
+}

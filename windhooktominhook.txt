@@ -1,0 +1,71 @@
+#include <windows.h>
+#include "MinHook.h"
+#include <ntstatus.h>
+
+typedef NTSTATUS(WINAPI* RtlGetVersion_t)(PRTL_OSVERSIONINFOW);
+RtlGetVersion_t RtlGetVersion_Original;
+NTSTATUS WINAPI RtlGetVersion_Hook(PRTL_OSVERSIONINFOW change_data_inside_a_structure) {
+	//you need to specify from  dwOSVersionInfoSize to dwPlatformId becuse for some reason if you only specify dwBuildNumber the other data in structure will have a very bug value that will cause the //browser to crash i was able to figure it out thanks to api monitor v2 in context switch mode
+    change_data_inside_a_structure->dwOSVersionInfoSize = 284;
+    change_data_inside_a_structure->dwMajorVersion = 10;
+    change_data_inside_a_structure->dwMinorVersion = 0;
+    change_data_inside_a_structure->dwBuildNumber = 17000;
+    change_data_inside_a_structure->dwPlatformId = VER_PLATFORM_WIN32_NT;
+    return STATUS_SUCCESS;
+}
+
+typedef BOOL(WINAPI* GetVersionEx_t)(LPOSVERSIONINFO);
+GetVersionEx_t GetVersionEx_Original;
+BOOL WINAPI GetVersionEx_Hook(LPOSVERSIONINFO change_data_inside_a_structure) {
+    change_data_inside_a_structure->dwOSVersionInfoSize = 284;
+    change_data_inside_a_structure->dwMajorVersion = 10;
+    change_data_inside_a_structure->dwMinorVersion = 0;
+    change_data_inside_a_structure->dwBuildNumber = 17000;
+    change_data_inside_a_structure->dwPlatformId = VER_PLATFORM_WIN32_NT;
+    return TRUE;
+}
+
+// Entry point of the DLL
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+    switch (ul_reason_for_call) {
+        case DLL_PROCESS_ATTACH:
+            // Initialize MinHook
+            if (MH_Initialize() != MH_OK) {
+                MessageBoxA(NULL, "Failed to initialize MinHook", "Error", MB_OK | MB_ICONERROR);
+                return FALSE;
+            }
+
+            // Get the address of the RtlGetVersion function
+            RtlGetVersion_Original = (RtlGetVersion_t)GetProcAddress(GetModuleHandleA("ntdll.dll"), "RtlGetVersion");
+            // Get the address of the GetVersionEx function
+            GetVersionEx_Original = (GetVersionEx_t)GetProcAddress(GetModuleHandleA("kernel32.dll"), "GetVersionExA");
+
+            // Create the hook
+            if (MH_CreateHook(RtlGetVersion_Original, &RtlGetVersion_Hook, (LPVOID*)&RtlGetVersion_Original) != MH_OK) {
+                MessageBoxA(NULL, "Failed to create hook", "Error", MB_OK | MB_ICONERROR);
+                return FALSE;
+            }
+            // Create the hook
+            if (MH_CreateHook(GetVersionEx_Original, &GetVersionEx_Hook, (LPVOID*)&GetVersionEx_Original) != MH_OK) {
+                MessageBoxA(NULL, "Failed to create hook", "Error", MB_OK | MB_ICONERROR);
+                return FALSE;
+            }
+
+            // Enable the hook
+            if (MH_EnableHook(MH_ALL_HOOKS) != MH_OK) {
+                MessageBoxA(NULL, "Failed to enable hook", "Error", MB_OK | MB_ICONERROR);
+                return FALSE;
+            }
+            break;
+
+        case DLL_PROCESS_DETACH:
+            // Disable and remove the hook
+            MH_DisableHook(RtlGetVersion_Original);
+            MH_RemoveHook(RtlGetVersion_Original);
+            MH_DisableHook(GetVersionEx_Original);
+            MH_RemoveHook(GetVersionEx_Original);
+            break;
+    }
+
+    return TRUE;
+}

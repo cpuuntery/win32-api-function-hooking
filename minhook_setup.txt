@@ -1,0 +1,19 @@
+How to use minhook if you are using codeblocks 
+
+0- create new C project. Then go to console then shared library
+1- copy MinHook.h and MinHook.x64.dll and MinHook.x64.lib to the project folder
+2- go to project then build option set to static build and add MinHook.x64.lib to the linker settings
+3- write the dll file to be injected compile it and copy the dll to in the same path as the injector exe
+4-create new C project. Then go to console then console application
+4-write the dll injector. Most of the time you will need to change the name of the exe that the dll will inject into. and the name of the dll to be injected. the injector needs MinHook.x64.dll to be in the same path in order for it to work
+
+How to use minhook if you are using Embarcadero Dev-C++
+
+note Embarcadero Dev-C++ has a bug that cuse the broject to be saved incorrectly you must save sung save as and overwrite the file
+
+0- create new C project. Choose DLL
+1- copy MinHook.h and MinHook.x64.dll and MinHook.x64.lib to the project folder
+2- go to project then project option add MinHook.x64.lib to the linker in the parameter tab
+3- write the dll file to be injected compile it and copy the dll to in the same path as the injector exe
+4-create new C project. Console application
+4-write the dll injector. Most of the time you will need to change the name of the exe that the dll will inject into. and the name of the dll to be injected. the injector needs MinHook.x64.dll to be in the same path in order for it to work

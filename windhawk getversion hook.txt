@@ -1,0 +1,38 @@
+// ==WindhawkMod==
+// @id              new-mod-3
+// @name            Your Awesome Mod (3)
+// @description     The best mod ever that does great things
+// @version         0.1
+// @author          You
+// @github          https://github.com/nat
+// @twitter         https://twitter.com/jack
+// @homepage        https://your-personal-homepage.example.com/
+// @include         test.exe
+// ==/WindhawkMod==
+
+#include <winnt.h>
+#include <ntstatus.h>
+#include <Windows.h>
+
+typedef NTSTATUS(WINAPI* RtlGetVersion_t)(PRTL_OSVERSIONINFOW);
+RtlGetVersion_t RtlGetVersion_Original;
+NTSTATUS WINAPI RtlGetVersion_Hook(PRTL_OSVERSIONINFOW change_data_inside_a_structure) {
+    Wh_Log(L"RtlGetVersion_Hook");
+        change_data_inside_a_structure->dwBuildNumber = 10740;
+    return STATUS_SUCCESS;
+}
+
+// The mod is being initialized, load settings, hook functions, and do other
+// initialization stuff if required.
+BOOL Wh_ModInit() {
+    Wh_Log(L"Init");
+	HMODULE GetVersionModule = LoadLibrary(L"ntdll.dll");
+	RtlGetVersion_t RtlGetVersion =(RtlGetVersion_t)GetProcAddress(GetVersionModule, "RtlGetVersion");
+    Wh_SetFunctionHook((void*)RtlGetVersion, (void*)RtlGetVersion_Hook,(void**)&RtlGetVersion_Original);
+    return TRUE;
+}
+
+// The mod is being unloaded, free all allocated resources.
+void Wh_ModUninit() {
+    Wh_Log(L"Uninit");
+}

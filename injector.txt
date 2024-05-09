@@ -1,0 +1,73 @@
+#include <Windows.h>
+
+
+int main()
+{
+    // Path to the DLL that contains the hooking code
+    const char* dllPath = "libsharedlib.dll";
+
+    // Path to the target executable (test_minhook_hooks.exe)
+    const char* targetPath = "test_minhook_hooks.exe";
+
+    // Create the target process in a suspended state
+    STARTUPINFOA startupInfo = { sizeof(startupInfo) };
+    PROCESS_INFORMATION processInfo;
+
+    if (!CreateProcessA(NULL, (LPSTR)targetPath, NULL, NULL, FALSE, CREATE_SUSPENDED, NULL, NULL, &startupInfo, &processInfo))
+    {
+        printf("Failed to create target process.\n");
+        return 1;
+    }
+
+    // Allocate memory in the target process for the DLL path
+    LPVOID remoteString = VirtualAllocEx(processInfo.hProcess, NULL, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    if (remoteString == NULL)
+    {
+        printf("Failed to allocate memory in target process.\n");
+        TerminateProcess(processInfo.hProcess, 1);
+        return 1;
+    }
+
+    // Write the DLL path into the allocated memory
+    if (!WriteProcessMemory(processInfo.hProcess, remoteString, dllPath, strlen(dllPath) + 1, NULL))
+    {
+        printf("Failed to write DLL path into target process memory.\n");
+        VirtualFreeEx(processInfo.hProcess, remoteString, 0, MEM_RELEASE);
+        TerminateProcess(processInfo.hProcess, 1);
+        return 1;
+    }
+
+    // Get the address of LoadLibraryA function in the target process
+    FARPROC loadLibrary = GetProcAddress(GetModuleHandle("kernel32.dll"), "LoadLibraryA");
+    if (loadLibrary == NULL)
+    {
+        printf("Failed to get address of LoadLibraryA function.\n");
+        VirtualFreeEx(processInfo.hProcess, remoteString, 0, MEM_RELEASE);
+        TerminateProcess(processInfo.hProcess, 1);
+        return 1;
+    }
+
+    // Create a remote thread in the target process to load the DLL
+    HANDLE hThread = CreateRemoteThread(processInfo.hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)loadLibrary, remoteString, 0, NULL);
+    if (hThread == NULL)
+    {
+        printf("Failed to create remote thread in target process.\n");
+        VirtualFreeEx(processInfo.hProcess, remoteString, 0, MEM_RELEASE);
+        TerminateProcess(processInfo.hProcess, 1);
+        return 1;
+    }
+
+    // Wait for the remote thread to complete
+    WaitForSingleObject(hThread, INFINITE);
+
+    // Clean up resources
+    CloseHandle(hThread);
+    VirtualFreeEx(processInfo.hProcess, remoteString, 0, MEM_RELEASE);
+    ResumeThread(processInfo.hThread);
+    CloseHandle(processInfo.hProcess);
+    CloseHandle(processInfo.hThread);
+
+    printf("Injection completed successfully.\n");
+
+    return 0;
+}

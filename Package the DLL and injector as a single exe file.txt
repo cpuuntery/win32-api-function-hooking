@@ -1,0 +1,5 @@
+1- install Enigma Virtual Box
+2- added the exe injector in "Input File Name" field
+3- added MinHook.x64.dll and libminhookdll.dll
+4- set the Package to extract MinHook.x64.dll and libminhookdll.dll if files does not exist
+Properties then set the Virtualization Method to "Write to Disk if not Exists"

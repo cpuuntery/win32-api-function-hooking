@@ -1,0 +1,62 @@
+#include <Windows.h>
+
+int main()
+{
+    const char* targetProcessName = "chrome.exe";
+    const char* dllPath = "libminhookdll.dll"; // Replace with the actual DLL path
+
+    // CreateProcessA parameters
+    STARTUPINFOA si = { sizeof(si) };
+    PROCESS_INFORMATION pi;
+
+    if (!CreateProcessA(NULL, targetProcessName, NULL, NULL, FALSE, CREATE_SUSPENDED, NULL, NULL, &si, &pi))
+    {
+        printf("Failed to create process: %d\n", GetLastError());
+        return 1;
+    }
+
+    // Allocate memory in the target process for the DLL path
+    LPVOID lpRemoteMemory = VirtualAllocEx(pi.hProcess, NULL, MAX_PATH, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!lpRemoteMemory)
+    {
+        printf("Failed to allocate memory in the target process: %d\n", GetLastError());
+        return 1;
+    }
+
+    // Write the DLL path into the target process
+    SIZE_T bytesWritten;
+    if (!WriteProcessMemory(pi.hProcess, lpRemoteMemory, dllPath, strlen(dllPath) + 1, &bytesWritten))
+    {
+        printf("Failed to write DLL path into the target process: %d\n", GetLastError());
+        return 1;
+    }
+
+    // Get the address of LoadLibraryA in the target process
+    FARPROC lpLoadLibraryA = GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "LoadLibraryA");
+    if (!lpLoadLibraryA)
+    {
+        printf("Failed to get the address of LoadLibraryA in the target process\n");
+        return 1;
+    }
+
+    // Create a remote thread to load the DLL into the target process
+    HANDLE hRemoteThread = CreateRemoteThread(pi.hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)lpLoadLibraryA, lpRemoteMemory, 0, NULL);
+    if (!hRemoteThread)
+    {
+        printf("Failed to create remote thread: %d\n", GetLastError());
+        return 1;
+    }
+
+    // Wait for the remote thread to finish
+    WaitForSingleObject(hRemoteThread, INFINITE);
+
+    // Resume the main thread of the target process
+    ResumeThread(pi.hThread);
+
+    // Close handles
+    CloseHandle(hRemoteThread);
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+
+    return 0;
+}

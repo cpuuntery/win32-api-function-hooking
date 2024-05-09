@@ -1,0 +1,62 @@
+#include <Windows.h>
+#include <stdio.h>
+#include "MinHook.h"
+#include <ntstatus.h>
+
+// Define the original function pointer type
+typedef NTSTATUS(WINAPI* RtlGetVersionPtr)(LPOSVERSIONINFOEXW);
+
+// Define the original function
+RtlGetVersionPtr TrueRtlGetVersion;
+
+// Hooked function for RtlGetVersion
+NTSTATUS WINAPI HookedRtlGetVersion(LPOSVERSIONINFOEXW lpVersionInfo)
+{
+    // Spoof the build number
+    lpVersionInfo->dwBuildNumber = 1;
+
+    // Call the original function
+		return STATUS_SUCCESS;
+}
+
+// Entry point for the DLL
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
+{
+    if (ul_reason_for_call == DLL_PROCESS_ATTACH)
+    {
+        // Initialize MinHook
+        if (MH_Initialize() != MH_OK)
+        {
+            MessageBox(NULL, "Failed to initialize MinHook", "Error", MB_OK | MB_ICONERROR);
+            return FALSE;
+        }
+
+        // Get the address of the original RtlGetVersion function
+        TrueRtlGetVersion = (RtlGetVersionPtr)GetProcAddress(GetModuleHandle("ntdll.dll"), "RtlGetVersion");
+
+        // Create the hook
+        if (MH_CreateHook(TrueRtlGetVersion, &HookedRtlGetVersion, (LPVOID*)&TrueRtlGetVersion) != MH_OK)
+        {
+            MessageBox(NULL, "Failed to create hook", "Error", MB_OK | MB_ICONERROR);
+            return FALSE;
+        }
+
+        // Enable the hook
+        if (MH_EnableHook(MH_ALL_HOOKS) != MH_OK)
+        {
+            MessageBox(NULL, "Failed to enable hook", "Error", MB_OK | MB_ICONERROR);
+            return FALSE;
+        }
+    }
+    else if (ul_reason_for_call == DLL_PROCESS_DETACH)
+    {
+        // Disable and remove the hook
+        MH_DisableHook(TrueRtlGetVersion);
+        MH_RemoveHook(TrueRtlGetVersion);
+
+        // Uninitialize MinHook
+        MH_Uninitialize();
+    }
+
+    return TRUE;
+}

@@ -1,0 +1,50 @@
+// ==WindhawkMod==
+// @id              versionhook
+// @name            RtlGetVersion and GetVersionEx
+// @description     The best mod ever that does great things
+// @version         0.1
+// @author          You
+// @github          https://github.com/nat
+// @twitter         https://twitter.com/jack
+// @homepage        https://your-personal-homepage.example.com/
+// @include         test.exe
+// ==/WindhawkMod==
+
+#include <winnt.h>
+#include <ntstatus.h>
+#include <Windows.h>
+
+typedef NTSTATUS(WINAPI* RtlGetVersion_t)(PRTL_OSVERSIONINFOW);
+RtlGetVersion_t RtlGetVersion_Original;
+NTSTATUS WINAPI RtlGetVersion_Hook(PRTL_OSVERSIONINFOW change_data_inside_a_structure) {
+    Wh_Log(L"RtlGetVersion_Hook");
+        change_data_inside_a_structure->dwBuildNumber = 10740;
+    return STATUS_SUCCESS;
+}
+
+typedef BOOL(WINAPI* GetVersionEx_t)(LPOSVERSIONINFO);
+GetVersionEx_t GetVersionEx_Original;
+BOOL WINAPI GetVersionEx_Hook(LPOSVERSIONINFO change_data_inside_a_structure) {
+    Wh_Log(L"GetVersionEx_Hook");
+        change_data_inside_a_structure->dwBuildNumber = 10740;
+    return TRUE;
+}
+
+
+// The mod is being initialized, load settings, hook functions, and do other
+// initialization stuff if required.
+BOOL Wh_ModInit() {
+    Wh_Log(L"Init");
+	HMODULE RtlGetVersionModule = LoadLibrary(L"ntdll.dll");
+	HMODULE GetVersionExModule = LoadLibrary(L"kernel32.dll");
+	RtlGetVersion_t RtlGetVersion =(RtlGetVersion_t)GetProcAddress(RtlGetVersionModule, "RtlGetVersion");
+	GetVersionEx_t GetVersionEx =(GetVersionEx_t)GetProcAddress(GetVersionExModule, "GetVersionExA");
+    Wh_SetFunctionHook((void*)RtlGetVersion, (void*)RtlGetVersion_Hook,(void**)&RtlGetVersion_Original);
+	Wh_SetFunctionHook((void*)GetVersionEx, (void*)GetVersionEx_Hook,(void**)&GetVersionEx_Original);
+    return TRUE;
+}
+
+// The mod is being unloaded, free all allocated resources.
+void Wh_ModUninit() {
+    Wh_Log(L"Uninit");
+}

@@ -1,0 +1,57 @@
+// ==WindhawkMod==
+// @id              new-mod-3
+// @name            Your Awesome Mod (3)
+// @description     The best mod ever that does great things
+// @version         0.1
+// @author          You
+// @github          https://github.com/nat
+// @twitter         https://twitter.com/jack
+// @homepage        https://your-personal-homepage.example.com/
+// @include         test.exe
+// ==/WindhawkMod==
+
+//the first thing that you must know before hooking a function is the function return type
+
+#include <winnt.h>
+#include <ntstatus.h>
+#include <Windows.h>
+
+// NTSTATUS must be chabged depending on the win32 function type
+//typedef NTSTATUS(WINAPI* win32_api_t)(pointer_to_win32_function_structure);
+//win32_api_t win32_api_Original;
+
+// win32 api uses structure to give data to a function or read data from a function. 
+// to minpulate a function we need to change the structure that is used by the  function. 
+// to reach the structure we need a pointer to a structure.
+// PRTL_OSVERSIONINFOW is a pointer to OSVERSIONINFOW structure that is used by RtlGetVersion function
+
+typedef NTSTATUS(NTAPI* RtlGetVersion_t)(PRTL_OSVERSIONINFOW);
+RtlGetVersion_t RtlGetVersion_Original;
+NTSTATUS WINAPI RtlGetVersion_Hook(PRTL_OSVERSIONINFOW change_data_inside_a_structure) {
+    Wh_Log(L"RtlGetVersion_Hook");
+        change_data_inside_a_structure->dwBuildNumber = 10240;
+	// to know the return type. you can use "API Monitor v2" or read the microsoft documentation about the api. do not ever assume that you know the return type.
+    return STATUS_SUCCESS;
+}
+//if you got an answer from machine learning LLM you must stop here at the equivalent of int main() from the LLM answer 
+// The mod is being initialized, load settings, hook functions, and do other initialization stuff if required.
+BOOL Wh_ModInit() {
+    Wh_Log(L"Init");
+//the loaded library changes depending on the win32 api being targeted. for RtlGetVersion the library is ntdll.dll
+	HMODULE LoadedModule = LoadLibrary(L"ntdll.dll");
+  //"RtlGetVersion_t" must match for example the name in line 28 and 29 and at the end "RtlGetVersion" function name must match for example the name in line 43
+	RtlGetVersion_t RtlGetVersion =(RtlGetVersion_t)GetProcAddress(LoadedModule, "RtlGetVersion");
+	
+  //"RtlGetVersion" at the end of line 43 is very important. if your function hooking does not work. try to replace the last capital letter of the function for A to W and vice versa
+  
+  //"RtlGetVersion" function name must match for example the name in of line 43 
+  //"RtlGetVersion_Hook" function name must match for example the name in line 30 and 31
+  //"RtlGetVersion_Original" function name must match for example the name in line 29
+    Wh_SetFunctionHook((void*)RtlGetVersion, (void*)RtlGetVersion_Hook,(void**)&RtlGetVersion_Original);
+    return TRUE;
+}
+
+// The mod is being unloaded, free all allocated resources.
+void Wh_ModUninit() {
+    Wh_Log(L"Uninit");
+}
